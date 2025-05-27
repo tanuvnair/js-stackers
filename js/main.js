@@ -1,36 +1,32 @@
 const ROWS = 15;
 const COLS = 7;
-let CELL_SIZE = calculateCellSize();
 let GRID = Array(ROWS)
   .fill()
   .map(() => Array(COLS).fill(0));
-let PLAYER = { x: 0, y: (ROWS - 1) * CELL_SIZE, speed: 1 };
-let PLAYER_MOVED = false;
+let CELL_SIZE = 70;
 
-function calculateCellSize() {
-  const maxWidth = Math.floor((window.innerWidth * 0.9) / COLS);
-  const maxHeight = Math.floor((window.innerHeight * 0.8) / ROWS);
-  return Math.min(maxWidth, maxHeight);
-}
+let player = {
+  row: ROWS - 1,
+  col: 2,
+  width: 3,
+  movingRight: true,
+  speed: 0.05,
+  lastMoveTime: 0,
+  moveInterval: 100
+};
 
-const canvas = document.getElementById("r3verse");
+const canvas = document.getElementById("stacker");
 const ctx = canvas.getContext("2d");
 
-function resizeCanvas() {
-  CELL_SIZE = calculateCellSize();
-  canvas.width = COLS * CELL_SIZE;
-  canvas.height = ROWS * CELL_SIZE;
+canvas.height = ROWS * CELL_SIZE;
+canvas.width = COLS * CELL_SIZE;
 
-  drawGrid();
-}
-
-// Draw the initial grid with the player
 function drawGrid() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
   for (let i = 0; i < ROWS; i++) {
     for (let j = 0; j < COLS; j++) {
-      ctx.fillStyle = GRID[i][j] ? "#fff" : "#000";
+      ctx.fillStyle = GRID[i][j] > 0 ? "red" : "#000";
       ctx.fillRect(j * CELL_SIZE, i * CELL_SIZE, CELL_SIZE, CELL_SIZE);
 
       // The grid
@@ -40,53 +36,59 @@ function drawGrid() {
   }
 }
 
-function drawPlayer() {
-  for (let i = 0; i < ROWS; i++) {
-    for (let j = 0; j < COLS; j++) {
-      if (
-        i >= PLAYER.y / CELL_SIZE &&
-        i < (PLAYER.y + CELL_SIZE) / CELL_SIZE &&
-        j >= PLAYER.x / CELL_SIZE &&
-        j < (PLAYER.x + CELL_SIZE * 3) / CELL_SIZE
-      ) {
-        GRID[i][j] = 1;
-      } else {
-        GRID[i][j] = 0;
-      }
-    }
-  }
-}
+let frameCount = 0;
+const framesPerMove = 20;
 
-function movePlayer() {
-  if (!PLAYER_MOVED) {
-    PLAYER.x += PLAYER.speed;
-    if (PLAYER.x >= canvas.width - CELL_SIZE * 3) {
-      PLAYER_MOVED = true;
+function drawPlayer(timestamp) {
+  // Only move if enough time has passed
+  if (timestamp - player.lastMoveTime < player.moveInterval) return;
+  player.lastMoveTime = timestamp;
+
+  // Clear previous position
+  for (let i = 0; i < COLS; i++) {
+    GRID[player.row][i] = 0;
+  }
+
+  // Update position with fractional speed
+  if (player.movingRight) {
+    player.col += player.speed;
+    if (player.col + player.width > COLS) {
+      player.col = COLS - player.width;
+      player.movingRight = false;
     }
   } else {
-    PLAYER.x -= PLAYER.speed;
-    if (PLAYER.x <= -CELL_SIZE + 1) {
-      PLAYER_MOVED = false;
+    player.col -= player.speed;
+    if (player.col < 0) {
+      player.col = 0;
+      player.movingRight = true;
+    }
+  }
+
+  // Set new position (round to nearest column)
+  const roundedCol = Math.round(player.col);
+  for (let i = 0; i < player.width; i++) {
+    if (roundedCol + i < COLS) {
+      GRID[player.row][roundedCol + i] = 1;
     }
   }
 }
 
-// Here goes the game loop
+function lockBlock() {
+  player.row -= 1;
+}
+
 function gameLoop() {
   drawGrid();
   drawPlayer();
-  movePlayer();
   requestAnimationFrame(gameLoop);
 }
+gameLoop();
 
 // --------------- Event Listeners---------------
-// On page load
-window.addEventListener("load", () => {
-  resizeCanvas();
-  gameLoop();
-});
-
-// On page resize
-window.addEventListener("resize", () => {
-  resizeCanvas();
+document.addEventListener('keydown', (e) => {
+  switch(e.code) {
+    case 'Space':
+      lockBlock();
+      break;
+  }
 });
