@@ -1,94 +1,144 @@
-const ROWS = 15;
-const COLS = 7;
-let GRID = Array(ROWS)
-  .fill()
-  .map(() => Array(COLS).fill(0));
-let CELL_SIZE = 70;
-
-let player = {
-  row: ROWS - 1,
-  col: 2,
-  width: 3,
-  movingRight: true,
-  speed: 0.05,
-  lastMoveTime: 0,
-  moveInterval: 100
+// Game Configuration
+const CONFIG = {
+  ROWS: 15,
+  COLS: 7,
+  CELL_SIZE: 70,
+  INITIAL_WIDTH: 3,
+  PLAYER_SPEED: 1,
+  MOVE_INTERVAL: 100,
+  PLAYER_COLOR: "red",
+  GRID_COLOR: "#000",
+  GRID_LINE_COLOR: "gray",
 };
 
+// Game State
+const state = {
+  grid: Array(CONFIG.ROWS)
+    .fill()
+    .map(() => Array(CONFIG.COLS).fill(0)),
+  player: {
+    row: CONFIG.ROWS - 1,
+    col: Math.floor((CONFIG.COLS - CONFIG.INITIAL_WIDTH) / 2),
+    width: CONFIG.INITIAL_WIDTH,
+    movingRight: true,
+    speed: CONFIG.PLAYER_SPEED,
+    lastMoveTime: 0,
+  },
+  gameActive: true,
+};
+
+// Canvas Setup
 const canvas = document.getElementById("stacker");
 const ctx = canvas.getContext("2d");
+canvas.height = CONFIG.ROWS * CONFIG.CELL_SIZE;
+canvas.width = CONFIG.COLS * CONFIG.CELL_SIZE;
 
-canvas.height = ROWS * CELL_SIZE;
-canvas.width = COLS * CELL_SIZE;
-
+// Drawing Functions
 function drawGrid() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  for (let i = 0; i < ROWS; i++) {
-    for (let j = 0; j < COLS; j++) {
-      ctx.fillStyle = GRID[i][j] > 0 ? "red" : "#000";
-      ctx.fillRect(j * CELL_SIZE, i * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+  for (let row = 0; row < CONFIG.ROWS; row++) {
+    for (let col = 0; col < CONFIG.COLS; col++) {
+      // Draw cell
+      ctx.fillStyle = state.grid[row][col]
+        ? CONFIG.PLAYER_COLOR
+        : CONFIG.GRID_COLOR;
+      ctx.fillRect(
+        col * CONFIG.CELL_SIZE,
+        row * CONFIG.CELL_SIZE,
+        CONFIG.CELL_SIZE,
+        CONFIG.CELL_SIZE
+      );
 
-      // The grid
-      ctx.strokeStyle = "gray";
-      ctx.strokeRect(j * CELL_SIZE, i * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+      // Draw grid lines
+      ctx.strokeStyle = CONFIG.GRID_LINE_COLOR;
+      ctx.strokeRect(
+        col * CONFIG.CELL_SIZE,
+        row * CONFIG.CELL_SIZE,
+        CONFIG.CELL_SIZE,
+        CONFIG.CELL_SIZE
+      );
     }
   }
 }
 
-let frameCount = 0;
-const framesPerMove = 20;
-
-function drawPlayer(timestamp) {
-  // Only move if enough time has passed
-  if (timestamp - player.lastMoveTime < player.moveInterval) return;
-  player.lastMoveTime = timestamp;
+function updatePlayer(timestamp) {
+  if (
+    !state.gameActive ||
+    timestamp - state.player.lastMoveTime < CONFIG.MOVE_INTERVAL
+  )
+    return;
+  state.player.lastMoveTime = timestamp;
 
   // Clear previous position
-  for (let i = 0; i < COLS; i++) {
-    GRID[player.row][i] = 0;
-  }
+  clearPlayerPosition();
 
-  // Update position with fractional speed
-  if (player.movingRight) {
-    player.col += player.speed;
-    if (player.col + player.width > COLS) {
-      player.col = COLS - player.width;
-      player.movingRight = false;
+  // Update position
+  if (state.player.movingRight) {
+    state.player.col += state.player.speed;
+    if (state.player.col + state.player.width > CONFIG.COLS) {
+      state.player.col = CONFIG.COLS - state.player.width;
+      state.player.movingRight = false;
     }
   } else {
-    player.col -= player.speed;
-    if (player.col < 0) {
-      player.col = 0;
-      player.movingRight = true;
+    state.player.col -= state.player.speed;
+    if (state.player.col < 0) {
+      state.player.col = 0;
+      state.player.movingRight = true;
     }
   }
 
-  // Set new position (round to nearest column)
-  const roundedCol = Math.round(player.col);
-  for (let i = 0; i < player.width; i++) {
-    if (roundedCol + i < COLS) {
-      GRID[player.row][roundedCol + i] = 1;
+  // Set new position
+  drawPlayerPosition();
+}
+
+function clearPlayerPosition() {
+  for (let col = 0; col < CONFIG.COLS; col++) {
+    state.grid[state.player.row][col] = 0;
+  }
+}
+
+function drawPlayerPosition() {
+  const roundedCol = Math.round(state.player.col);
+  for (let i = 0; i < state.player.width; i++) {
+    if (roundedCol + i < CONFIG.COLS) {
+      state.grid[state.player.row][roundedCol + i] = 1;
     }
   }
 }
 
+// Game Logic
 function lockBlock() {
-  player.row -= 1;
+  if (!state.gameActive) return;
+
+  // Move player up one row
+  state.player.row--;
+
+  // Check for game over or win conditions
+  if (state.player.row < 0) {
+    endGame(true); // Player won
+  }
 }
 
-function gameLoop() {
+function endGame(win = false) {
+  state.gameActive = false;
+  alert(win ? "You Win!" : "Game Over!");
+}
+
+// Game Loop
+function gameLoop(timestamp) {
+  updatePlayer(timestamp);
   drawGrid();
-  drawPlayer();
   requestAnimationFrame(gameLoop);
 }
-gameLoop();
 
-// --------------- Event Listeners---------------
-document.addEventListener('keydown', (e) => {
-  switch(e.code) {
-    case 'Space':
-      lockBlock();
-      break;
+// Event Listeners
+document.addEventListener("keydown", (e) => {
+  if (e.code === "Space") {
+    lockBlock();
   }
 });
+canvas.addEventListener("click", lockBlock);
+
+// Start Game
+gameLoop();
