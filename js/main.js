@@ -107,10 +107,31 @@ function drawPlayerPosition() {
   }
 }
 
+function gravity() {
+            for (let col = 0; col < CONFIG.COLS; col++) {
+                for (let row = CONFIG.ROWS - 1; row >= 0; row--) {
+                    if (state.grid[row][col] === 0) {
+                        for (let i = row - 1; i >= 0; i--) {
+                            if (state.grid[i][col] === 1) {
+                                if (row === CONFIG.ROWS - 1) {
+                                    state.grid[i][col] = 0;
+                                    state.player.width -= 1;
+                                } else {
+                                    state.grid[row][col] = 1;
+                                    state.grid[i][col] = 0;
+                                    state.player.width -= 1;
+                                }
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
 // Game Logic
 function lockBlock() {
   if (!state.gameActive) return;
-
   // Move player up one row
   state.player.row--;
 
@@ -136,6 +157,7 @@ function gameLoop(timestamp) {
 document.addEventListener("keydown", (e) => {
   if (e.code === "Space") {
     lockBlock();
+    gravity();
   }
 });
 canvas.addEventListener("click", lockBlock);
